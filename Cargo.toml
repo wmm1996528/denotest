@@ -1,0 +1,11 @@
+[package]
+name = "denotest"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+deno_core = "0.369.0"
+anyhow = "1.0.100"
+tokio = { version = "1.48", features = ["full"] }
+serde_v8 = "0.278.0"
+serde_json = "1.0.145"
