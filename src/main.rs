@@ -33,7 +33,8 @@ async fn main() {
     // 根据参数决定是否加载扩展
     extensions.push(timer_real_ops::timer_real_ops::init());
 
-    let code = fs::read("/Users/wang/RustroverProjects/rustv8/env.js").expect("failed to read JS file");
+    // let code = fs::read("/Users/wang/RustroverProjects/rustv8/env.js").expect("failed to read JS file");
+    let code = fs::read("test.js").expect("failed to read JS file");
     let code2 = fs::read("/Users/wang/RustroverProjects/rustv8/test.js").expect("failed to read JS file");
     let mut runtime = JsRuntime::new(RuntimeOptions {
         extensions,
