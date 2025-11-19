@@ -44,6 +44,7 @@ async fn main() {
     println!("{:#?}", runtime.op_names());
     // Evaluate some code
     //     runtime.execute_script("aaa", binding);
+    println!("start");
     let output: serde_json::Value =
         eval(&mut runtime, binding).expect("Eval failed");
     println!("Output: {output:?}");
