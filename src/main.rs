@@ -7,48 +7,66 @@
 // deserialize to any other type that implements the `Deserialize` trait.
 
 mod ops;
-mod timer_real_ops;
-mod random_state;
+pub mod timer_real_ops;
 
+pub mod random_state;
+mod storage;
+
+use crate::storage::ResultStorage;
 use anyhow::anyhow;
 use deno_core::RuntimeOptions;
 use deno_core::error::JsError;
 use deno_core::v8;
-use deno_core::v8::{EscapableHandleScope, Handle};
-use deno_core::{JsRuntime, OpState, PollEventLoopOptions, op2};
+use deno_core::{JsRuntime, op2};
 use serde_v8;
-use std::cell::RefCell;
 use std::fs;
 use std::rc::Rc;
-#[op2(fast)]
-fn op_hello(#[string] text: &str) {
-    println!("Hello {}!", text);
-}
-deno_core::extension!(hello_runtime, ops = [op_hello]);
+use std::sync::Once;
 
+static INIT: Once = Once::new();
+
+fn ensure_v8_initialized() {
+    INIT.call_once(|| {
+        // Initialize V8 platform (required before creating any isolates)
+        deno_core::JsRuntime::init_platform(None, false);
+    });
+}
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+    ensure_v8_initialized();
+
+
+    multi_test().await;
+}
+async fn my_background_op(id: i32) -> String {
+    let s = format!("Starting background task {}.", id);
+    println!("{}", s);
+    s
+}
+async fn multi_test() {
+    let mut tasks = Vec::with_capacity(2);
+    for op in 0..2 {
+
+
+        // Evaluate some code
+        //     runtime.execute_script("aaa", binding);
+        tasks.push(tokio::spawn(my_background_op(op)));
+    }
+    // This call will make them start running in the background
+    // immediately.
+    let storage = Rc::new(ResultStorage::new());
+
     let mut extensions = vec![
         // Custom ops for result storage
-        hello_runtime::init(),
         crate::ops::fs_ops::fs_ops::init(),
         crate::ops::browser_env::browser_env_ops::init(),
         crate::ops::crypto_ops::crypto_ops::init(),
+        crate::ops::storage_ops::pyexecjs_ext::init(storage.clone()),
     ];
 
     // 根据参数决定是否加载扩展
     extensions.push(timer_real_ops::timer_real_ops::init());
 
-    let env = fs::read("env.js").expect("failed to read JS file");
-    let env_str = String::from_utf8(env).unwrap();
-
-    // let code = fs::read("/Users/wang/ClionProjects/rusty_v8/env.js").expect("failed to read JS file");
-    let code = fs::read("test.js").expect("failed to read JS file");
-    let binding = String::from_utf8(code).unwrap();
-
-    // let code2 = fs::read("/Users/wang/RustroverProjects/rustv8/test.js").expect("failed to read JS file");
-    // let code2 = fs::read("/Users/wang/CLionProjects/rusty_v8/env.js").expect("failed to read JS file");
-    let js = env_str.to_string() + binding.as_str() + "\n" ;
     let mut runtime = JsRuntime::new(RuntimeOptions {
         extensions,
         ..Default::default()
@@ -63,14 +81,42 @@ async fn main() {
     runtime
         .execute_script("base", include_str!("js_polyfill.js"))
         .unwrap();
-
-    // Evaluate some code
-    //     runtime.execute_script("aaa", binding);
-    println!("start");
-    let output: serde_json::Value = eval(&mut runtime, js).await.expect("Eval failed");
-    runtime.v8_isolate().terminate_execution();
-    println!("Output: {output:?}");
+    test(runtime).await;
+    println!("res {}", storage.value.take().unwrap());
+    let mut outputs = Vec::with_capacity(tasks.len());
+    for task in tasks {
+        outputs.push(task.await.unwrap());
+    }
 }
+async fn test(mut runtime: JsRuntime) -> serde_v8::Result<serde_json::Value> {
+    println!("start");
+
+    let env = fs::read("env.js").expect("failed to read JS file");
+    let env_str = String::from_utf8(env).unwrap();
+
+    // let code = fs::read("/Users/wang/ClionProjects/rusty_v8/env.js").expect("failed to read JS file");
+    let code = fs::read("test.js").expect("failed to read JS file");
+    let binding = String::from_utf8(code).unwrap();
+
+    // let code2 = fs::read("/Users/wang/RustroverProjects/rustv8/test.js").expect("failed to read JS file");
+    // let code2 = fs::read("/Users/wang/CLionProjects/rusty_v8/env.js").expect("failed to read JS file");
+    let js = env_str.to_string() + binding.as_str() + "\n";
+
+    let res = runtime
+        .execute_script("<run>", js)
+        .map_err(|e| anyhow!("{}", format_error(e.into())))
+        .unwrap();
+    // let event_loop_result = context.run_event_loop(Default::default()).await;
+
+    deno_core::scope!(scope, runtime);
+    let local = v8::Local::new(scope, res);
+    // Deserialize a `v8` object into a Rust type using `serde_v8`,
+    // in this case deserialize to a JSON `Value`.
+    let deserialized_value = serde_v8::from_v8::<serde_json::Value>(scope, local);
+
+    deserialized_value
+}
+
 /// 格式化 JavaScript 错误为人类可读的字符串
 ///
 /// 将 deno_core 的 JsError 转换为清晰的错误消息，包含：
@@ -200,25 +246,8 @@ fn format_error(error: anyhow::Error) -> String {
         }
     }
 }
-async fn eval(context: &mut JsRuntime, code: String) -> Result<serde_json::Value, String> {
-    let res = context
-        .execute_script("<run>", code)
-        .map_err(|e| anyhow!("{}", format_error(e.into())))
-        .unwrap();
-    let event_loop_result = context.run_event_loop(Default::default()).await;
 
-    deno_core::scope!(scope, context);
-    let local = v8::Local::new(scope, res);
-    // Deserialize a `v8` object into a Rust type using `serde_v8`,
-    // in this case deserialize to a JSON `Value`.
-    let deserialized_value = serde_v8::from_v8::<serde_json::Value>(scope, local);
-
-    match deserialized_value {
-        Ok(value) => Ok(value),
-        Err(err) => Err(format!("Cannot deserialize value: {err:?}")),
-    }
-}
-fn init_utils(scope:&mut v8::PinScope<'_, '_>, global : v8::Local<v8::Object>) {
+fn init_utils(scope: &mut v8::PinScope<'_, '_>, global: v8::Local<v8::Object>) {
     let print = v8::Function::new(
         scope,
         |_scope: &mut v8::PinScope<'_, '_>,
@@ -231,22 +260,18 @@ fn init_utils(scope:&mut v8::PinScope<'_, '_>, global : v8::Local<v8::Object>) {
                         "{:?}",
                         item.cast::<v8::String>().to_rust_string_lossy(_scope)
                     );
-                }else if item.is_boolean() {
+                } else if item.is_boolean() {
                     print!("{:?}", item.to_boolean(_scope).boolean_value(_scope));
-
-                }else if item.is_number() {
+                } else if item.is_number() {
                     print!(
                         "{:?}",
-                        item
-                            .cast::<v8::Number>()
+                        item.cast::<v8::Number>()
                             .to_integer(_scope)
                             .unwrap()
                             .value()
                     );
-                } else if item.is_function(){
-                    print!(
-                        "{:?}", "function"
-                    );
+                } else if item.is_function() {
+                    print!("{:?}", "function");
                 } else {
                     print!("{:?}", item.type_of(_scope).to_rust_string_lossy(_scope));
                 }
@@ -255,13 +280,12 @@ fn init_utils(scope:&mut v8::PinScope<'_, '_>, global : v8::Local<v8::Object>) {
             println!();
         },
     )
-        .unwrap();
+    .unwrap();
     global.set(
         scope,
         v8::String::new(scope, "print").unwrap().into(),
         print.into(),
     );
-
 
     fn cal_back(
         _scope: &mut v8::PinScope<'_, '_>,
@@ -280,10 +304,9 @@ fn init_utils(scope:&mut v8::PinScope<'_, '_>, global : v8::Local<v8::Object>) {
             match res {
                 Some(result) => {
                     _rv.set(result.into());
-                },
+                }
                 None => {}
             };
-
         }
         // let func = v8::Function::try_from(call).unwrap();
         // func.call(_scope, _args.this(), _args.length(), params);
@@ -321,10 +344,17 @@ fn init_utils(scope:&mut v8::PinScope<'_, '_>, global : v8::Local<v8::Object>) {
             println!("{:?}", return_value.to_rust_string_lossy(_scope));
         }
 
-        unsafe { _scope.terminate_execution(); }
+        unsafe {
+            _scope.terminate_execution();
+        }
     }
     let exit_temp = v8::FunctionTemplate::new(scope, v8_exit);
 
-    global.set(scope, v8::String::new(scope, "ReturnValue").unwrap().into(), exit_temp.get_function(scope).unwrap().into()).unwrap();
-
+    global
+        .set(
+            scope,
+            v8::String::new(scope, "ReturnValue").unwrap().into(),
+            exit_temp.get_function(scope).unwrap().into(),
+        )
+        .unwrap();
 }
