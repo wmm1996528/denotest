@@ -7,6 +7,7 @@ pub mod timer;            // 定时器
 pub mod worker;           // Worker API
 pub mod browser_env;
 mod tools;
+pub mod crypto_ops;
 // 浏览器环境对象 (新增)
 
 // 重新导出常用类型

@@ -8,16 +8,18 @@
 
 mod ops;
 mod timer_real_ops;
+mod random_state;
 
+use anyhow::anyhow;
+use deno_core::RuntimeOptions;
+use deno_core::error::JsError;
+use deno_core::v8;
+use deno_core::v8::{EscapableHandleScope, Handle};
+use deno_core::{JsRuntime, OpState, PollEventLoopOptions, op2};
+use serde_v8;
 use std::cell::RefCell;
 use std::fs;
 use std::rc::Rc;
-use anyhow::anyhow;
-use deno_core::{op2, JsRuntime, OpState, PollEventLoopOptions};
-use deno_core::error::JsError;
-use deno_core::RuntimeOptions;
-use deno_core::v8;
-use serde_v8;
 #[op2(fast)]
 fn op_hello(#[string] text: &str) {
     println!("Hello {}!", text);
@@ -31,34 +33,43 @@ async fn main() {
         hello_runtime::init(),
         crate::ops::fs_ops::fs_ops::init(),
         crate::ops::browser_env::browser_env_ops::init(),
-
+        crate::ops::crypto_ops::crypto_ops::init(),
     ];
+
     // 根据参数决定是否加载扩展
     extensions.push(timer_real_ops::timer_real_ops::init());
 
-    // let code = fs::read("/Users/wang/RustroverProjects/rustv8/env.js").expect("failed to read JS file");
+    let env = fs::read("env.js").expect("failed to read JS file");
+    let env_str = String::from_utf8(env).unwrap();
+
+    // let code = fs::read("/Users/wang/ClionProjects/rusty_v8/env.js").expect("failed to read JS file");
     let code = fs::read("test.js").expect("failed to read JS file");
+    let binding = String::from_utf8(code).unwrap();
+
     // let code2 = fs::read("/Users/wang/RustroverProjects/rustv8/test.js").expect("failed to read JS file");
     // let code2 = fs::read("/Users/wang/CLionProjects/rusty_v8/env.js").expect("failed to read JS file");
-
+    let js = env_str.to_string() + binding.as_str() + "\n" ;
     let mut runtime = JsRuntime::new(RuntimeOptions {
         extensions,
         ..Default::default()
     });
-    let isolate = runtime.v8_isolate();
+    // Make sure the module was evaluated.
+    {
+        deno_core::scope!(scope, runtime);
+        let global = scope.get_current_context().global(scope);
+        init_utils(scope, global);
+    }
 
-    runtime.execute_script("base", include_str!("js_polyfill.js")).unwrap();
-    let binding = String::from_utf8(code).unwrap();
+    runtime
+        .execute_script("base", include_str!("js_polyfill.js"))
+        .unwrap();
 
     // Evaluate some code
     //     runtime.execute_script("aaa", binding);
     println!("start");
-    let output: serde_json::Value =
-        eval(&mut runtime, binding).await.expect("Eval failed");
+    let output: serde_json::Value = eval(&mut runtime, js).await.expect("Eval failed");
     runtime.v8_isolate().terminate_execution();
     println!("Output: {output:?}");
-
-
 }
 /// 格式化 JavaScript 错误为人类可读的字符串
 ///
@@ -86,8 +97,10 @@ fn format_js_error(error: &JsError) -> String {
 
         // 跳过第一行（通常是重复的错误消息）
         for (i, line) in stack_lines.iter().enumerate() {
-            if i == 0 && (line.contains(&error.name.as_deref().unwrap_or("")) ||
-                line.contains(&error.message.as_deref().unwrap_or(""))) {
+            if i == 0
+                && (line.contains(&error.name.as_deref().unwrap_or(""))
+                    || line.contains(&error.message.as_deref().unwrap_or("")))
+            {
                 continue; // 跳过重复的错误消息
             }
 
@@ -171,7 +184,8 @@ fn format_error(error: anyhow::Error) -> String {
                             if let Some(stack_end) = stack_part.find("\"),") {
                                 let stack = &stack_part[..stack_end];
                                 // 清理转义字符
-                                let cleaned_stack = stack.replace("\\n", "\n").replace("\\\"", "\"");
+                                let cleaned_stack =
+                                    stack.replace("\\n", "\n").replace("\\\"", "\"");
                                 return format!("{}\n{}", message, cleaned_stack);
                             }
                         }
@@ -186,26 +200,131 @@ fn format_error(error: anyhow::Error) -> String {
         }
     }
 }
-async fn eval(
-    context: &mut JsRuntime,
-    code: String,
-) -> Result<serde_json::Value, String> {
-
-
-    let res = context.execute_script("<anon>", code).map_err(|e| anyhow!("{}", format_error(e.into()))).unwrap();
-    let event_loop_result = context
-        .run_event_loop(Default::default())
-        .await;
+async fn eval(context: &mut JsRuntime, code: String) -> Result<serde_json::Value, String> {
+    let res = context
+        .execute_script("<run>", code)
+        .map_err(|e| anyhow!("{}", format_error(e.into())))
+        .unwrap();
+    let event_loop_result = context.run_event_loop(Default::default()).await;
 
     deno_core::scope!(scope, context);
     let local = v8::Local::new(scope, res);
     // Deserialize a `v8` object into a Rust type using `serde_v8`,
     // in this case deserialize to a JSON `Value`.
-    let deserialized_value =
-        serde_v8::from_v8::<serde_json::Value>(scope, local);
+    let deserialized_value = serde_v8::from_v8::<serde_json::Value>(scope, local);
 
     match deserialized_value {
         Ok(value) => Ok(value),
         Err(err) => Err(format!("Cannot deserialize value: {err:?}")),
     }
+}
+fn init_utils(scope:&mut v8::PinScope<'_, '_>, global : v8::Local<v8::Object>) {
+    let print = v8::Function::new(
+        scope,
+        |_scope: &mut v8::PinScope<'_, '_>,
+         _args: v8::FunctionCallbackArguments,
+         _rv: v8::ReturnValue| {
+            for i in 0.._args.length() {
+                let item = _args.get(i);
+                if item.is_string() {
+                    print!(
+                        "{:?}",
+                        item.cast::<v8::String>().to_rust_string_lossy(_scope)
+                    );
+                }else if item.is_boolean() {
+                    print!("{:?}", item.to_boolean(_scope).boolean_value(_scope));
+
+                }else if item.is_number() {
+                    print!(
+                        "{:?}",
+                        item
+                            .cast::<v8::Number>()
+                            .to_integer(_scope)
+                            .unwrap()
+                            .value()
+                    );
+                } else if item.is_function(){
+                    print!(
+                        "{:?}", "function"
+                    );
+                } else {
+                    print!("{:?}", item.type_of(_scope).to_rust_string_lossy(_scope));
+                }
+                print!(", ");
+            }
+            println!();
+        },
+    )
+        .unwrap();
+    global.set(
+        scope,
+        v8::String::new(scope, "print").unwrap().into(),
+        print.into(),
+    );
+
+
+    fn cal_back(
+        _scope: &mut v8::PinScope<'_, '_>,
+        _args: v8::FunctionCallbackArguments,
+        mut _rv: v8::ReturnValue,
+    ) {
+        let call = _args.data();
+        // println!("data {:?} {}", call, call.is_function());
+        if call.is_function() {
+            let func = call.cast::<v8::Function>();
+            let mut params = &mut [].to_vec();
+            for i in 0.._args.length() {
+                params.push(_args.get(i));
+            }
+            let res = func.call(_scope, _args.this().into(), params);
+            match res {
+                Some(result) => {
+                    _rv.set(result.into());
+                },
+                None => {}
+            };
+
+        }
+        // let func = v8::Function::try_from(call).unwrap();
+        // func.call(_scope, _args.this(), _args.length(), params);
+    }
+    fn empty(
+        _scope: &mut v8::PinScope<'_, '_>,
+        _args: v8::FunctionCallbackArguments,
+        mut _rv: v8::ReturnValue,
+    ) {
+        let global = _scope.get_current_context().global(_scope);
+        let _call_func = _args.get(2);
+
+        let func_temp = v8::FunctionTemplate::builder(cal_back)
+            .data(_call_func)
+            .build(_scope);
+        let name = _args.get(0).to_string(_scope).unwrap();
+        func_temp.set_class_name(name.into());
+        func_temp.get_function(_scope);
+        _rv.set(func_temp.get_function(_scope).unwrap().into());
+    }
+    let func_temp = v8::FunctionTemplate::new(scope, empty);
+    let name = v8::String::new(scope, "newFunc").unwrap();
+    func_temp.set_class_name(v8::String::new(scope, "newFunc").unwrap());
+    let func = func_temp.get_function(scope).unwrap();
+    global.set(scope, name.into(), func.into()).unwrap();
+
+    fn v8_exit(
+        _scope: &mut v8::PinScope<'_, '_>,
+        _args: v8::FunctionCallbackArguments,
+        mut _rv: v8::ReturnValue,
+    ) {
+        println!("ReturnValue.call");
+        if (_args.length() > 0) {
+            let return_value = _args.get(0).to_string(_scope).unwrap();
+            println!("{:?}", return_value.to_rust_string_lossy(_scope));
+        }
+
+        unsafe { _scope.terminate_execution(); }
+    }
+    let exit_temp = v8::FunctionTemplate::new(scope, v8_exit);
+
+    global.set(scope, v8::String::new(scope, "ReturnValue").unwrap().into(), exit_temp.get_function(scope).unwrap().into()).unwrap();
+
 }

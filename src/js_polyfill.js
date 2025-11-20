@@ -413,6 +413,7 @@ globalThis.__neverjscore_early_return_value__ = null;
 globalThis.__neverjscore_early_return_triggered__ = false;
 
 globalThis.__neverjscore_return__ = function(value) {
+    log('return', value);
     // 存储值到全局变量（用于绕过 Akamai try-catch）
     globalThis.__neverjscore_early_return_value__ = value;
     globalThis.__neverjscore_early_return_triggered__ = true;
@@ -494,6 +495,7 @@ if (typeof setTimeout === 'undefined') {
                         log(`Timer callback triggered early return: id=${timerId}, re-throwing`);
                         throw e;  // Re-throw to propagate to event loop
                     }
+                    log(e);
                     console.error(`Error in setTimeout callback (id=${timerId}):`, e);
                 }
             }
