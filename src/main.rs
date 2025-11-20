@@ -9,45 +9,48 @@
 mod ops;
 mod timer_real_ops;
 
+use std::cell::RefCell;
 use std::fs;
+use std::rc::Rc;
 use anyhow::anyhow;
-use deno_core::{op2, JsRuntime};
+use deno_core::{op2, JsRuntime, OpState, PollEventLoopOptions};
 use deno_core::error::JsError;
 use deno_core::RuntimeOptions;
 use deno_core::v8;
 use serde_v8;
-
 #[op2(fast)]
 fn op_hello(#[string] text: &str) {
     println!("Hello {}!", text);
 }
 deno_core::extension!(hello_runtime, ops = [op_hello]);
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     let mut extensions = vec![
         // Custom ops for result storage
         hello_runtime::init()
     ];
-
     // 根据参数决定是否加载扩展
     extensions.push(timer_real_ops::timer_real_ops::init());
 
     // let code = fs::read("/Users/wang/RustroverProjects/rustv8/env.js").expect("failed to read JS file");
     let code = fs::read("test.js").expect("failed to read JS file");
-    let code2 = fs::read("/Users/wang/RustroverProjects/rustv8/test.js").expect("failed to read JS file");
+    // let code2 = fs::read("/Users/wang/RustroverProjects/rustv8/test.js").expect("failed to read JS file");
+    // let code2 = fs::read("/Users/wang/CLionProjects/rusty_v8/env.js").expect("failed to read JS file");
     let mut runtime = JsRuntime::new(RuntimeOptions {
         extensions,
         ..Default::default()
     });
     let binding = String::from_utf8(code).unwrap();
-    println!("{:#?}", runtime.op_names());
     // Evaluate some code
     //     runtime.execute_script("aaa", binding);
     println!("start");
     let output: serde_json::Value =
-        eval(&mut runtime, binding).expect("Eval failed");
+        eval(&mut runtime, binding).await.expect("Eval failed");
+
     println!("Output: {output:?}");
+
+
 }
 /// 格式化 JavaScript 错误为人类可读的字符串
 ///
@@ -175,12 +178,16 @@ fn format_error(error: anyhow::Error) -> String {
         }
     }
 }
-fn eval(
+async fn eval(
     context: &mut JsRuntime,
     code: String,
 ) -> Result<serde_json::Value, String> {
-    let res = context.execute_script("<anon>", code).map_err(|e| anyhow!("{}", format_error(e.into()))).unwrap();
 
+
+    let res = context.execute_script("<anon>", code).map_err(|e| anyhow!("{}", format_error(e.into()))).unwrap();
+    let event_loop_result = context
+        .run_event_loop(Default::default())
+        .await;
 
     deno_core::scope!(scope, context);
     let local = v8::Local::new(scope, res);

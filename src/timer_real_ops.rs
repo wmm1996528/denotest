@@ -23,6 +23,7 @@ pub async fn op_set_timeout_real(
     #[smi] timer_id: i32,
     #[smi] delay: i32,
 ) -> bool {
+    println!("start1");
     ACTIVE_TIMERS.with(|timers| {
         timers.borrow_mut().insert(timer_id, true);
     });
@@ -31,6 +32,7 @@ pub async fn op_set_timeout_real(
         // Use tokio::time::sleep
         tokio::time::sleep(Duration::from_millis(delay as u64)).await;
     }
+    println!("start2");
 
     let should_execute = ACTIVE_TIMERS.with(|timers| {
         timers.borrow().get(&timer_id).copied().unwrap_or(false)
