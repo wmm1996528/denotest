@@ -28,7 +28,10 @@ deno_core::extension!(hello_runtime, ops = [op_hello]);
 async fn main() {
     let mut extensions = vec![
         // Custom ops for result storage
-        hello_runtime::init()
+        hello_runtime::init(),
+        crate::ops::fs_ops::fs_ops::init(),
+        crate::ops::browser_env::browser_env_ops::init(),
+
     ];
     // 根据参数决定是否加载扩展
     extensions.push(timer_real_ops::timer_real_ops::init());
@@ -37,17 +40,22 @@ async fn main() {
     let code = fs::read("test.js").expect("failed to read JS file");
     // let code2 = fs::read("/Users/wang/RustroverProjects/rustv8/test.js").expect("failed to read JS file");
     // let code2 = fs::read("/Users/wang/CLionProjects/rusty_v8/env.js").expect("failed to read JS file");
+
     let mut runtime = JsRuntime::new(RuntimeOptions {
         extensions,
         ..Default::default()
     });
+    let isolate = runtime.v8_isolate();
+
+    runtime.execute_script("base", include_str!("js_polyfill.js")).unwrap();
     let binding = String::from_utf8(code).unwrap();
+
     // Evaluate some code
     //     runtime.execute_script("aaa", binding);
     println!("start");
     let output: serde_json::Value =
         eval(&mut runtime, binding).await.expect("Eval failed");
-
+    runtime.v8_isolate().terminate_execution();
     println!("Output: {output:?}");
 
 
