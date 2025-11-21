@@ -8,10 +8,14 @@
 
 mod ops;
 pub mod timer_real_ops;
-
+mod Context;
 pub mod random_state;
 mod storage;
+mod context;
+mod tools;
+mod runtime;
 
+use crate::random_state::random_f64;
 use crate::storage::ResultStorage;
 use anyhow::anyhow;
 use deno_core::RuntimeOptions;
@@ -22,6 +26,8 @@ use serde_v8;
 use std::fs;
 use std::rc::Rc;
 use std::sync::Once;
+use tokio::time::Instant;
+use crate::tools::{format_error, get_env_code, init_utils};
 
 static INIT: Once = Once::new();
 
@@ -32,545 +38,180 @@ fn ensure_v8_initialized() {
     });
 }
 
-fn get_env_code() -> String {
-    let base_code = &[
-        "dom/cheerio.js",
-        "dom/vm_base.js",
-        "dom/env.js",
-
-        "dom/timer.js",
-        "dom/Intl.js",
-        // mouse
-        "dom/EventTarget/EventTarget.js",
-        "dom/EVENT/EVENT.js",
-        "dom/EVENTS/UIEvent.js",
-        "dom/EVENTS/TouchEvent.js",
-        "dom/EVENTS/MouseEvent.js",
-        "dom/EVENTS/PointerEvent.js",
-        "dom/EventTarget/Node.js",
-        "dom/EventTarget/NetworkInformation.js",
-        "dom/EventTarget/StorageManager.js",
-        "dom/window/VisualViewport.js",
-        "dom/window/Window.js",
-        "dom/window/File.js",
-        "dom/CSS/CSSStyleDeclaration.js",
-        "dom/CSS/CSSPositionTryDescriptors.js",
-        "dom/DOM/Attr.js",
-        "dom/EVENT/BaseAudioContext.js",
-        "dom/EVENT/OfflineAudioContext.js",
-        "dom/EVENT/Bluetooth.js",
-        "dom/EVENT/BlobEvent.js",
-        "dom/Performance/PerformanceEntry.js",
-        "dom/Performance/Performance.js",
-        "dom/Performance/PerformanceNavigation.js",
-        "dom/Performance/PerformancePaintTiming.js",
-        "dom/Performance/PerformanceTiming.js",
-        "dom/Performance/PerformanceObserver.js",
-        "dom/xhr/XMLHttpRequestEventTarget.js",
-        "dom/xhr/XMLHttpRequest.js",
-        "dom/xhr/fetch.js",
-        "dom/EVENT/CustomEvent.js",
-        "dom/BOM/GPU/GPU.js",
-        "dom/BOM/Navigator.js",
-        "dom/BOM/Plugin/MimeType.js",
-        "dom/BOM/Plugin/MimeTypeArray.js",
-        "dom/BOM/Plugin/Plugin.js",
-        "dom/BOM/Plugin/PluginArray.js",
-        "dom/BOM/Location.js",
-        "dom/BOM/History.js",
-        "dom/BOM/Screen.js",
-        "dom/BOM/Storage.js",
-        "dom/BOM/chrome.js",
-        "dom/BOM/TextMetrics.js",
-        "dom/BOM/MediaQueryList.js",
-        "dom/BOM/BarProp.js",
-        "dom/BOM/External.js",
-        "dom/BOM/RTC/rtc.js",
-        "dom/BOM/RTC/RTCDataChannel.js",
-        "dom/BOM/RTC/RTCIceCandidate.js",
-        "dom/BOM/RTC/RTCPeerConnection.js",
-        "dom/BOM/RTC/RTCPeerConnectionIceEvent.js",
-        "dom/BOM/RTC/RTCSessionDescription.js",
-        "dom/BOM/Navigation.js",
-        "dom/BOM/CookieStore.js",
-        "dom/BOM/LaunchQueue.js",
-        "dom/BOM/SharedStorage.js",
-        "dom/BOM/DocumentPictureInPicture.js",
-        "dom/BOM/GPU/GPUBufferUsage.js",
-        "dom/BOM/GPU/GPUColorWrite.js",
-        "dom/DOM/Document.js",
-        "dom/DOM/elements/ElementsAttrs.js",
-        "dom/DOM/Element.js",
-        "dom/DOM/HTMLElement.js",
-        "dom/DOM/DOMTokenList.js",
-        "dom/DOM/elements/HTMLAllCollection.js",
-        "dom/BOM/SVG/svg.js",
-        "dom/BOM/USB/usb.js",
-        "dom/BOM/MEDIA/media.js",
-        "dom/BOM/Text/Text.js",
-        "dom/BOM/CSS/css.js",
-        "dom/BOM/XR/xr.js",
-        "dom/BOM/BLUETOOTH/bluetooth.js",
-        "dom/DOM/WebGL.js",
-        "dom/DOM/WebGLRenderingContext.js",
-        "dom/DOM/WebGL2RenderingContext.js",
-        "dom/DOM/CanvasRenderingContext2D.js",
-        "dom/DOM/OffscreenCanvas.js",
-        "dom/DOM/elements/HTMLDocument.js",
-        "dom/DOM/elements/HTMLParagraphElement.js",
-        "dom/DOM/elements/HTMLCanvasElement.js",
-        "dom/DOM/elements/HTMLBodyElement.js",
-        "dom/DOM/elements/HTMLHeadElement.js",
-        "dom/DOM/elements/HTMLHtmlElement.js",
-        "dom/DOM/elements/HTMLMediaElement.js",
-        "dom/DOM/elements/HTMLSpanElement.js",
-        "dom/DOM/elements/HTMLFormElement.js",
-        "dom/DOM/elements/HTMLAnchorElement.js",
-        "dom/DOM/elements/HTMLLIElement.js",
-        "dom/DOM/elements/HTMLImageElement.js",
-        "dom/DOM/elements/HTMLScriptElement.js",
-        "dom/DOM/elements/HTMLStyleElement.js",
-        "dom/DOM/elements/HTMLTitleElement.js",
-        "dom/DOM/elements/HTMLIFrameElement.js",
-        "dom/DOM/elements/HTMLLinkElement.js",
-        "dom/DOM/elements/HTMLUListElement.js",
-        "dom/DOM/elements/HTMLDivElement.js",
-        "dom/DOM/elements/HTMLAudioElement.js",
-        "dom/DOM/elements/HTMLMetaElement.js",
-        "dom/DOM/elements/HTMLCollection.js",
-        "dom/DOM/elements/HTMLInputElement.js",
-        "dom/DOM/elements/HTMLPreElement.js",
-        "dom/DOM/elements/HTMLVideoElement.js",
-        "dom/DOM/elements/HTMLUndef.js",
-        "dom/DOM/documents.js",
-        "dom/DOM/Image.js",
-        "dom/CSS/DOMRect.js",
-        "dom/WORKER/worker.js",
-        "dom/WORKER/MessageChannel.js",
-        "dom/speech/SpeechSynthesis.js",
-        "dom/WORKER/SharedWorker.js",
-        "dom/DB/indexedDB.js",
-        "dom/other/ws.js",
-        // "dom/other/crypto.js",
-        "dom/crypto.js",
-        "dom/vm_end.js",
-        // "dom/vm_undefined.js",
-        "dom/vm_undef.js",
-    ];
-    let mut res = vec![];
-    base_code.iter().for_each(|e| {
-        res.extend(fs::read(e).unwrap()) ;
-        res.push(59);
-        res.push(10);
-    });
-    String::from_utf8(res).unwrap()
-}
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     ensure_v8_initialized();
     let env_code = get_env_code();
     fs::write("env.js", env_code).unwrap();
-
+    test().await;
     // multi_test().await;
-    for i in 0..1000 {
-        multi_test().await;
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
-    }
+    // for i in 0..1 {
+    //     let now = Instant::now();
+    //     multi_test().await;
+    //     println!("took {:?}", now.elapsed());
+    //     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    // }
 }
 
+async fn test_async(i: i32) -> i32 {
+    let t = (10 as f64 * random_f64()) as u64;
+    tokio::time::sleep(std::time::Duration::from_millis(t)).await;
+    println!("{:?} async test: {}", Instant::now(), t);
+    i * 20
+}
 async fn multi_test() {
     let mut tasks = Vec::with_capacity(2);
     for op in 0..50 {
         // Evaluate some code
         //     runtime.execute_script("aaa", binding);
-        tasks.push(tokio::spawn(async {
-            let storage = Rc::new(ResultStorage::new());
+        // tasks.push(tokio::spawn(async {
+        //
+        //
+        //
+        //     let storage = Rc::new(ResultStorage::new());
+        //
+        //     let mut extensions = vec![
+        //         // Custom ops for result storage
+        //         crate::ops::fs_ops::fs_ops::init(),
+        //         crate::ops::browser_env::browser_env_ops::init(),
+        //         crate::ops::crypto_ops::crypto_ops::init(),
+        //         crate::ops::storage_ops::pyexecjs_ext::init(storage.clone()),
+        //     ];
+        //
+        //     // 根据参数决定是否加载扩展
+        //     extensions.push(timer_real_ops::timer_real_ops::init());
+        //
+        //     let mut runtime = JsRuntime::new(RuntimeOptions {
+        //         extensions,
+        //         ..Default::default()
+        //     });
+        //     // Make sure the module was evaluated.
+        //     {
+        //         deno_core::scope!(scope, runtime);
+        //         let global = scope.get_current_context().global(scope);
+        //         init_utils(scope, global);
+        //     }
+        //
+        //     runtime
+        //         .execute_script("base", include_str!("js_polyfill.js"))
+        //         .unwrap();
+        //     let env = fs::read("env.js").expect("failed to read JS file");
+        //     let env_str = String::from_utf8(env).unwrap();
+        //
+        //     // let code = fs::read("/Users/wang/ClionProjects/rusty_v8/env.js").expect("failed to read JS file");
+        //     let code = fs::read("test.js").expect("failed to read JS file");
+        //     let binding = String::from_utf8(code).unwrap();
+        //
+        //     // let code2 = fs::read("/Users/wang/RustroverProjects/rustv8/test.js").expect("failed to read JS file");
+        //     // let code2 = fs::read("/Users/wang/CLionProjects/rusty_v8/env.js").expect("failed to read JS file");
+        //     let js = env_str.to_string() + binding.as_str() + "\n";
+        //
+        //     let res = runtime
+        //         .execute_script("<run>", js)
+        //         .map_err(|e| anyhow!("{}", format_error(e.into())))
+        //         .unwrap();
+        //     // let event_loop_result = context.run_event_loop(Default::default()).await;
+        //     // let isolate = runtime.v8_isolate();
+        //     // let heap_stats = isolate.get_heap_statistics();
+        //
+        //     // let mut stats = std::collections::HashMap::new();
+        //     // stats.insert("total_heap_size".to_string(), heap_stats.total_heap_size());
+        //     // stats.insert("total_heap_size_executable".to_string(), heap_stats.total_heap_size_executable());
+        //     // stats.insert("total_physical_size".to_string(), heap_stats.total_physical_size());
+        //     // stats.insert("total_available_size".to_string(), heap_stats.total_available_size());
+        //     // stats.insert("used_heap_size".to_string(), heap_stats.used_heap_size());
+        //     // stats.insert("heap_size_limit".to_string(), heap_stats.heap_size_limit());
+        //     // stats.insert("malloced_memory".to_string(), heap_stats.malloced_memory());
+        //     // stats.insert("external_memory".to_string(), heap_stats.external_memory());
+        //     // stats.insert("peak_malloced_memory".to_string(), heap_stats.peak_malloced_memory());
+        //     // stats.insert("number_of_native_contexts".to_string(), heap_stats.number_of_native_contexts());
+        //     // stats.insert("number_of_detached_contexts".to_string(), heap_stats.number_of_detached_contexts());
+        //     let res =  storage.value.take().unwrap();
+        //     println!("result.len {}", res.len());
+        //     res
+        // }));
 
-            let mut extensions = vec![
-                // Custom ops for result storage
-                crate::ops::fs_ops::fs_ops::init(),
-                crate::ops::browser_env::browser_env_ops::init(),
-                crate::ops::crypto_ops::crypto_ops::init(),
-                crate::ops::storage_ops::pyexecjs_ext::init(storage.clone()),
-            ];
-
-            // 根据参数决定是否加载扩展
-            extensions.push(timer_real_ops::timer_real_ops::init());
-
-            let mut runtime = JsRuntime::new(RuntimeOptions {
-                extensions,
-                ..Default::default()
-            });
-            // Make sure the module was evaluated.
-            {
-                deno_core::scope!(scope, runtime);
-                let global = scope.get_current_context().global(scope);
-                init_utils(scope, global);
-            }
-
-            runtime
-                .execute_script("base", include_str!("js_polyfill.js"))
-                .unwrap();
-            let env = fs::read("env.js").expect("failed to read JS file");
-            let env_str = String::from_utf8(env).unwrap();
-
-            // let code = fs::read("/Users/wang/ClionProjects/rusty_v8/env.js").expect("failed to read JS file");
-            let code = fs::read("test.js").expect("failed to read JS file");
-            let binding = String::from_utf8(code).unwrap();
-
-            // let code2 = fs::read("/Users/wang/RustroverProjects/rustv8/test.js").expect("failed to read JS file");
-            // let code2 = fs::read("/Users/wang/CLionProjects/rusty_v8/env.js").expect("failed to read JS file");
-            let js = env_str.to_string() + binding.as_str() + "\n";
-
-            let res = runtime
-                .execute_script("<run>", js)
-                .map_err(|e| anyhow!("{}", format_error(e.into())))
-                .unwrap();
-            // let event_loop_result = context.run_event_loop(Default::default()).await;
-            // let isolate = runtime.v8_isolate();
-            // let heap_stats = isolate.get_heap_statistics();
-
-            // let mut stats = std::collections::HashMap::new();
-            // stats.insert("total_heap_size".to_string(), heap_stats.total_heap_size());
-            // stats.insert("total_heap_size_executable".to_string(), heap_stats.total_heap_size_executable());
-            // stats.insert("total_physical_size".to_string(), heap_stats.total_physical_size());
-            // stats.insert("total_available_size".to_string(), heap_stats.total_available_size());
-            // stats.insert("used_heap_size".to_string(), heap_stats.used_heap_size());
-            // stats.insert("heap_size_limit".to_string(), heap_stats.heap_size_limit());
-            // stats.insert("malloced_memory".to_string(), heap_stats.malloced_memory());
-            // stats.insert("external_memory".to_string(), heap_stats.external_memory());
-            // stats.insert("peak_malloced_memory".to_string(), heap_stats.peak_malloced_memory());
-            // stats.insert("number_of_native_contexts".to_string(), heap_stats.number_of_native_contexts());
-            // stats.insert("number_of_detached_contexts".to_string(), heap_stats.number_of_detached_contexts());
-            let res =  storage.value.take().unwrap();
-            println!("result.len {}", res.len());
-            res
-        }));
+        // tasks.push(test_async(op));
+        tasks.push(test());
     }
     // This call will make them start running in the background
     // immediately.
 
     let mut outputs = Vec::with_capacity(tasks.len());
     for task in tasks {
-        outputs.push(task.await.unwrap());
+        outputs.push(task.await);
     }
 }
-async fn test() -> serde_v8::Result<serde_json::Value> {
-
-
-    let storage = Rc::new(ResultStorage::new());
-
-    let mut extensions = vec![
-        // Custom ops for result storage
-        crate::ops::fs_ops::fs_ops::init(),
-        crate::ops::browser_env::browser_env_ops::init(),
-        crate::ops::crypto_ops::crypto_ops::init(),
-        crate::ops::storage_ops::pyexecjs_ext::init(storage.clone()),
-    ];
-
-    // 根据参数决定是否加载扩展
-    extensions.push(timer_real_ops::timer_real_ops::init());
-
-    let mut runtime = JsRuntime::new(RuntimeOptions {
-        extensions,
-        ..Default::default()
-    });
-    // Make sure the module was evaluated.
-    {
-        deno_core::scope!(scope, runtime);
-        let global = scope.get_current_context().global(scope);
-        init_utils(scope, global);
-    }
-
-    runtime
-        .execute_script("base", include_str!("js_polyfill.js"))
-        .unwrap();
-    println!("start");
-
-    let env = fs::read("env.js").expect("failed to read JS file");
-    let env_str = String::from_utf8(env).unwrap();
+async fn test() -> String {
+    let context = crate::Context::Context::new(true,true,Some(222));
 
     // let code = fs::read("/Users/wang/ClionProjects/rusty_v8/env.js").expect("failed to read JS file");
     let code = fs::read("test.js").expect("failed to read JS file");
     let binding = String::from_utf8(code).unwrap();
+    let env_code = get_env_code();
+    //
+    let code =  env_code+ binding.as_str();
+    fs::write("env.js", &code).unwrap();
 
-    // let code2 = fs::read("/Users/wang/RustroverProjects/rustv8/test.js").expect("failed to read JS file");
-    // let code2 = fs::read("/Users/wang/CLionProjects/rusty_v8/env.js").expect("failed to read JS file");
-    let js = env_str.to_string() + binding.as_str() + "\n";
+    let t1 = Instant::now();
+    match context.execute_js(&code, false) {
+        Ok(result) => {
+            println!("{}", result);
+            println!("Execution time: {:?}", t1.elapsed());
+            result
+        },
+        Err(err) => {
+            println!("failed to execute JS: {}", err);
+            "".to_string()
+        }
 
-    let res = runtime
-        .execute_script("<run>", js)
-        .map_err(|e| anyhow!("{}", format_error(e.into())))
-        .unwrap();
+    };
+    "".to_string()
     // let event_loop_result = context.run_event_loop(Default::default()).await;
 
-
     // 直接访问 V8 isolate 并获取堆统计信息
-    let isolate = runtime.v8_isolate();
-    let heap_stats = isolate.get_heap_statistics();
-
-    let mut stats = std::collections::HashMap::new();
-    stats.insert("total_heap_size".to_string(), heap_stats.total_heap_size());
-    stats.insert("total_heap_size_executable".to_string(), heap_stats.total_heap_size_executable());
-    stats.insert("total_physical_size".to_string(), heap_stats.total_physical_size());
-    stats.insert("total_available_size".to_string(), heap_stats.total_available_size());
-    stats.insert("used_heap_size".to_string(), heap_stats.used_heap_size());
-    stats.insert("heap_size_limit".to_string(), heap_stats.heap_size_limit());
-    stats.insert("malloced_memory".to_string(), heap_stats.malloced_memory());
-    stats.insert("external_memory".to_string(), heap_stats.external_memory());
-    stats.insert("peak_malloced_memory".to_string(), heap_stats.peak_malloced_memory());
-    stats.insert("number_of_native_contexts".to_string(), heap_stats.number_of_native_contexts());
-    stats.insert("number_of_detached_contexts".to_string(), heap_stats.number_of_detached_contexts());
-    println!("stats {:?}", stats);
-    {
-        deno_core::scope!(scope, runtime);
-        let local = v8::Local::new(scope, res);
-        // Deserialize a `v8` object into a Rust type using `serde_v8`,
-        // in this case deserialize to a JSON `Value`.
-        let deserialized_value = serde_v8::from_v8::<serde_json::Value>(scope, local);
-        deserialized_value
-
-    }
+    // let isolate = runtime.v8_isolate();
+    // let heap_stats = isolate.get_heap_statistics();
+    //
+    // let mut stats = std::collections::HashMap::new();
+    // stats.insert("total_heap_size".to_string(), heap_stats.total_heap_size());
+    // stats.insert(
+    //     "total_heap_size_executable".to_string(),
+    //     heap_stats.total_heap_size_executable(),
+    // );
+    // stats.insert(
+    //     "total_physical_size".to_string(),
+    //     heap_stats.total_physical_size(),
+    // );
+    // stats.insert(
+    //     "total_available_size".to_string(),
+    //     heap_stats.total_available_size(),
+    // );
+    // stats.insert("used_heap_size".to_string(), heap_stats.used_heap_size());
+    // stats.insert("heap_size_limit".to_string(), heap_stats.heap_size_limit());
+    // stats.insert("malloced_memory".to_string(), heap_stats.malloced_memory());
+    // stats.insert("external_memory".to_string(), heap_stats.external_memory());
+    // stats.insert(
+    //     "peak_malloced_memory".to_string(),
+    //     heap_stats.peak_malloced_memory(),
+    // );
+    // stats.insert(
+    //     "number_of_native_contexts".to_string(),
+    //     heap_stats.number_of_native_contexts(),
+    // );
+    // stats.insert(
+    //     "number_of_detached_contexts".to_string(),
+    //     heap_stats.number_of_detached_contexts(),
+    // );
+    // println!("stats {:?}", stats);
+    // {
+    //     deno_core::scope!(scope, runtime);
+    //     let local = v8::Local::new(scope, res);
+    //     // Deserialize a `v8` object into a Rust type using `serde_v8`,
+    //     // in this case deserialize to a JSON `Value`.
+    //     let deserialized_value = serde_v8::from_v8::<serde_json::Value>(scope, local);
+    //     deserialized_value
+    // }
 }
 
-/// 格式化 JavaScript 错误为人类可读的字符串
-///
-/// 将 deno_core 的 JsError 转换为清晰的错误消息，包含：
-/// - 错误类型和消息
-/// - 格式化的调用堆栈
-/// - 源代码位置信息
-fn format_js_error(error: &JsError) -> String {
-    let mut output = String::new();
 
-    // 1. 错误类型和消息
-    if let Some(name) = &error.name {
-        output.push_str(name);
-        output.push_str(": ");
-    }
-    if let Some(message) = &error.message {
-        output.push_str(message);
-    }
-    output.push('\n');
-
-    // 2. 格式化的堆栈跟踪
-    if let Some(stack) = &error.stack {
-        // 清理堆栈信息，移除重复的错误消息
-        let stack_lines: Vec<&str> = stack.lines().collect();
-
-        // 跳过第一行（通常是重复的错误消息）
-        for (i, line) in stack_lines.iter().enumerate() {
-            if i == 0
-                && (line.contains(&error.name.as_deref().unwrap_or(""))
-                    || line.contains(&error.message.as_deref().unwrap_or("")))
-            {
-                continue; // 跳过重复的错误消息
-            }
-
-            // 清理行内容
-            let cleaned = line.trim();
-            if !cleaned.is_empty() {
-                output.push_str("  ");
-                output.push_str(cleaned);
-                output.push('\n');
-            }
-        }
-    } else if !error.frames.is_empty() {
-        // 如果没有 stack 字符串，从 frames 构建
-        output.push_str("Stack trace:\n");
-        for frame in &error.frames {
-            output.push_str("  at ");
-
-            if let Some(func_name) = &frame.function_name {
-                output.push_str(func_name);
-            } else {
-                output.push_str("<anonymous>");
-            }
-
-            output.push_str(" (");
-
-            if let Some(file_name) = &frame.file_name {
-                output.push_str(file_name);
-            } else if let Some(eval_origin) = &frame.eval_origin {
-                output.push_str(eval_origin);
-            } else {
-                output.push_str("<eval>");
-            }
-
-            if let Some(line) = frame.line_number {
-                output.push(':');
-                output.push_str(&line.to_string());
-
-                if let Some(col) = frame.column_number {
-                    output.push(':');
-                    output.push_str(&col.to_string());
-                }
-            }
-
-            output.push_str(")\n");
-        }
-    }
-
-    // 3. 源代码行（如果有）
-    if let Some(source_line) = &error.source_line {
-        output.push('\n');
-        output.push_str("Source:\n  ");
-        output.push_str(source_line);
-        output.push('\n');
-    }
-
-    output
-}
-
-/// 从 anyhow::Error 中提取并格式化 JsError
-///
-/// 尝试从错误链中找到 JsError 并格式化，如果找不到则返回原始错误消息
-fn format_error(error: anyhow::Error) -> String {
-    // 尝试 downcast 到 JsError
-    match error.downcast::<JsError>() {
-        Ok(js_error) => format_js_error(&js_error),
-        Err(original_error) => {
-            // 不是 JsError，检查是否包含 JsError 的 cause chain
-            let error_chain = format!("{:?}", original_error);
-
-            // 尝试从调试输出中提取 JsError
-            if error_chain.contains("JsError") {
-                // 包含 JsError，但无法直接访问，尝试解析
-                // 这是临时方案，返回简化的错误信息
-                if let Some(msg_start) = error_chain.find("message: Some(\"") {
-                    let msg_part = &error_chain[msg_start + 15..];
-                    if let Some(msg_end) = msg_part.find("\")") {
-                        let message = &msg_part[..msg_end];
-
-                        if let Some(stack_start) = error_chain.find("stack: Some(\"") {
-                            let stack_part = &error_chain[stack_start + 13..];
-                            if let Some(stack_end) = stack_part.find("\"),") {
-                                let stack = &stack_part[..stack_end];
-                                // 清理转义字符
-                                let cleaned_stack =
-                                    stack.replace("\\n", "\n").replace("\\\"", "\"");
-                                return format!("{}\n{}", message, cleaned_stack);
-                            }
-                        }
-
-                        return message.to_string();
-                    }
-                }
-            }
-
-            // 无法提取 JsError，返回原始错误
-            format!("{}", original_error)
-        }
-    }
-}
-
-fn init_utils(scope: &mut v8::PinScope<'_, '_>, global: v8::Local<v8::Object>) {
-    let print = v8::Function::new(
-        scope,
-        |_scope: &mut v8::PinScope<'_, '_>,
-         _args: v8::FunctionCallbackArguments,
-         _rv: v8::ReturnValue| {
-            // for i in 0.._args.length() {
-            //     let item = _args.get(i);
-            //     if item.is_string() {
-            //         print!(
-            //             "{:?}",
-            //             item.cast::<v8::String>().to_rust_string_lossy(_scope)
-            //         );
-            //     } else if item.is_boolean() {
-            //         print!("{:?}", item.to_boolean(_scope).boolean_value(_scope));
-            //     } else if item.is_number() {
-            //         print!(
-            //             "{:?}",
-            //             item.cast::<v8::Number>()
-            //                 .to_integer(_scope)
-            //                 .unwrap()
-            //                 .value()
-            //         );
-            //     } else if item.is_function() {
-            //         print!("{:?}", "function");
-            //     } else {
-            //         print!("{:?}", item.type_of(_scope).to_rust_string_lossy(_scope));
-            //     }
-            //     print!(", ");
-            // }
-            // println!();
-        },
-    )
-    .unwrap();
-    global.set(
-        scope,
-        v8::String::new(scope, "print").unwrap().into(),
-        print.into(),
-    );
-
-    fn cal_back(
-        _scope: &mut v8::PinScope<'_, '_>,
-        _args: v8::FunctionCallbackArguments,
-        mut _rv: v8::ReturnValue,
-    ) {
-        let call = _args.data();
-        // println!("data {:?} {}", call, call.is_function());
-        if call.is_function() {
-            let func = call.cast::<v8::Function>();
-            let mut params = &mut [].to_vec();
-            for i in 0.._args.length() {
-                params.push(_args.get(i));
-            }
-            let res = func.call(_scope, _args.this().into(), params);
-            match res {
-                Some(result) => {
-                    _rv.set(result.into());
-                }
-                None => {}
-            };
-        }
-        // let func = v8::Function::try_from(call).unwrap();
-        // func.call(_scope, _args.this(), _args.length(), params);
-    }
-    fn empty(
-        _scope: &mut v8::PinScope<'_, '_>,
-        _args: v8::FunctionCallbackArguments,
-        mut _rv: v8::ReturnValue,
-    ) {
-        let global = _scope.get_current_context().global(_scope);
-        let _call_func = _args.get(2);
-
-        let func_temp = v8::FunctionTemplate::builder(cal_back)
-            .data(_call_func)
-            .build(_scope);
-        let name = _args.get(0).to_string(_scope).unwrap();
-        func_temp.set_class_name(name.into());
-        func_temp.get_function(_scope);
-        _rv.set(func_temp.get_function(_scope).unwrap().into());
-    }
-    let func_temp = v8::FunctionTemplate::new(scope, empty);
-    let name = v8::String::new(scope, "newFunc").unwrap();
-    func_temp.set_class_name(v8::String::new(scope, "newFunc").unwrap());
-    let func = func_temp.get_function(scope).unwrap();
-    global.set(scope, name.into(), func.into()).unwrap();
-
-    fn v8_exit(
-        _scope: &mut v8::PinScope<'_, '_>,
-        _args: v8::FunctionCallbackArguments,
-        mut _rv: v8::ReturnValue,
-    ) {
-        if (_args.length() > 0) {
-            let return_value = _args.get(0).to_string(_scope).unwrap();
-            // println!("{:?}", return_value.to_rust_string_lossy(_scope));
-        }
-
-        unsafe {
-            _scope.terminate_execution();
-        }
-    }
-    let exit_temp = v8::FunctionTemplate::new(scope, v8_exit);
-
-    global
-        .set(
-            scope,
-            v8::String::new(scope, "ReturnValue").unwrap().into(),
-            exit_temp.get_function(scope).unwrap().into(),
-        )
-        .unwrap();
-}

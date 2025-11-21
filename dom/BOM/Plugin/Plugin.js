@@ -1,138 +1,136 @@
-Plugin = newFunc('Plugin', 3, function Plugin(description, filename, name, length) {
-    mm.memory.private_data.set(this, {
-        length: length
-    })
-}, true)
-
-Plugin = newFunc('Plugin', 1, function (){print('Plugin.call');mm.memory.private_data.set(this, {})});
+Plugin = newFunc('Plugin', 1, function Plugin() {
+    __getDeno().core.ops.op_console_log('Plugin.call');
+    mm.memory.private_data.set(this, {})
+    __getDeno().core.ops.op_console_log(typeof  mm.memory.private_data.get(this));
 
 
+});
 
-; delete Plugin.prototype.constructor;
+
+// ; delete Plugin.prototype.constructor;
 ;
 Object.defineProperties(Plugin.prototype, {
-    [Symbol.toStringTag]:{
-        value:'Plugin'
+    [Symbol.toStringTag]: {
+        value: 'Plugin'
     },
 
-'name': {
+    'name': {
 
-                  get: newFunc('name', 10, function (){
+        get: newFunc('name', 10, function () {
 
 
-                    if (!Plugin.prototype.isPrototypeOf(this)) {
+            if (!Plugin.prototype.isPrototypeOf(this)) {
                 throw new TypeError("Illegal constructor");
             }
             ;
 
-            let res =  mm.memory.private_data.get(this)['name'];
-            if (debug)print('Plugin.name.get', res)
+            let res = mm.memory.private_data.get(this)['name'];
+            if (debug) print('Plugin.name.get', res)
 
             return res
-        }, {get: true}), enumerable:true, configurable:true,
+        }, {get: true}), enumerable: true, configurable: true,
 
-        },
-'filename': {
+    },
+    'filename': {
 
-                  get: newFunc('filename', 10, function (){
+        get: newFunc('filename', 10, function () {
 
 
-                    if (!Plugin.prototype.isPrototypeOf(this)) {
+            if (!Plugin.prototype.isPrototypeOf(this)) {
                 throw new TypeError("Illegal constructor");
             }
             ;
 
-            let res =  mm.memory.private_data.get(this)['filename'];
-            if (debug)print('Plugin.filename.get', res)
+            let res = mm.memory.private_data.get(this)['filename'];
+            if (debug) print('Plugin.filename.get', res)
 
             return res
-        }, {get: true}), enumerable:true, configurable:true,
+        }, {get: true}), enumerable: true, configurable: true,
 
-        },
-'description': {
+    },
+    'description': {
 
-                  get: newFunc('description', 10, function (){
+        get: newFunc('description', 10, function () {
 
 
-                    if (!Plugin.prototype.isPrototypeOf(this)) {
+            if (!Plugin.prototype.isPrototypeOf(this)) {
                 throw new TypeError("Illegal constructor");
             }
             ;
 
-            let res =  mm.memory.private_data.get(this)['description'];
-            if (debug)print('Plugin.description.get', res)
+            let res = mm.memory.private_data.get(this)['description'];
+            if (debug) print('Plugin.description.get', res)
 
             return res
-        }, {get: true}), enumerable:true, configurable:true,
+        }, {get: true}), enumerable: true, configurable: true,
 
-        },
-'length': {
+    },
+    'length': {
 
-                  get: newFunc('length', 10, function (){
+        get: newFunc('length', 10, function () {
 
 
-                    if (!Plugin.prototype.isPrototypeOf(this)) {
+            if (!Plugin.prototype.isPrototypeOf(this)) {
                 throw new TypeError("Illegal constructor");
             }
             ;
 
-            let res =  mm.memory.private_data.get(this)['length'];
-            if (debug)print('Plugin.length.get', res)
+            let res = mm.memory.private_data.get(this)['length'];
+            if (debug) print('Plugin.length.get', res)
 
             return res
-        }, {get: true}), enumerable:true, configurable:true,
+        }, {get: true}), enumerable: true, configurable: true,
 
-        },
-'item': {
+    },
+    'item': {
 
-            value: newFunc('item', 10, function () {
+        value: newFunc('item', 10, function () {
 
-                      if (!Plugin.prototype.isPrototypeOf(this)) {
+            if (!Plugin.prototype.isPrototypeOf(this)) {
                 throw new TypeError("Illegal constructor");
             }
             ;
-                    if (debug)print('Plugin.item.call', arguments)
+            if (debug) print('Plugin.item.call', arguments)
 
-            }), writable:true, enumerable:true, configurable:true,
+        }), writable: true, enumerable: true, configurable: true,
 
 
+    },
+    'namedItem': {
 
-        },
-'namedItem': {
+        value: newFunc('namedItem', 10, function () {
 
-            value: newFunc('namedItem', 10, function () {
-
-                      if (!Plugin.prototype.isPrototypeOf(this)) {
+            if (!Plugin.prototype.isPrototypeOf(this)) {
                 throw new TypeError("Illegal constructor");
             }
             ;
-                    if (debug)print('Plugin.namedItem.call', arguments)
+            if (debug) print('Plugin.namedItem.call', arguments)
 
-            }), writable:true, enumerable:true, configurable:true,
-
-
-
-        },
-'constructor': {
-
-            value: newFunc('constructor', 10, function () {
-
-                      if (!Plugin.prototype.isPrototypeOf(this)) {
-                throw new TypeError("Illegal constructor");
-            }
-            ;
-                    if (debug)print('Plugin.constructor.call', arguments)
-
-            }), writable:true, enumerable:false, configurable:true,
+        }), writable: true, enumerable: true, configurable: true,
 
 
-
-        },
+    },
+    // 'constructor': {
+    //
+    //     value: newFunc('constructor', 10, function () {
+    //
+    //         if (!Plugin.prototype.isPrototypeOf(this)) {
+    //             throw new TypeError("Illegal constructor");
+    //         }
+    //         ;
+    //         if (debug) __getDeno().core.ops.op_console_log('Plugin.constructor.call', arguments)
+    //
+    //     }), writable: true, enumerable: false, configurable: true,
+    //
+    //
+    // },
 })
-
-    mm.memory.plugin.new = function (plugin_data) {
+let keys = Object.keys(pluginss);
+if (keys.length != 0) {
+    for (let index = 0; index < keys.length; index++) {
         let plugin = new Plugin();
-
+        __getDeno().core.ops.op_console_log(typeof  mm.memory.private_data.get(plugin));
+        let plugin_data = pluginss[keys[index]];
         if (plugin_data !== undefined) {
             mm.memory.private_data.get(plugin).description = plugin_data.description;
             mm.memory.private_data.get(plugin).filename = plugin_data.filename;
@@ -157,9 +155,22 @@ Object.defineProperties(Plugin.prototype, {
             // plugin.length = plugin_data.MimeTypes.length;
         }
         Object.setPrototypeOf(plugin, Plugin.prototype)
-        let result = plugin;
-        return result;
+        pluginArrays[index] = plugin;
+        pluginArrays[plugin.name] = plugin;
+        // Object.defineProperty(pluginArrays, index, {
+        //     value: plugin_temp, configurable: true, enumerable: true, writable: false
+        // });
+        // Object.defineProperty(pluginArrays, plugin_temp.name, {
+        //     value: plugin_temp, configurable: true, enumerable: false, writable: false
+        // });
+        mm.memory.private_data.get(pluginArrays).length = index + 1
     }
+}
+mm.memory.plugin.new = function (plugin_data) {
+
+    let result = plugin;
+    return result;
+}
 
 
 // debugger;

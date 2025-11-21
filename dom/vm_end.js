@@ -5042,24 +5042,24 @@ function getFormattedDate() {
     return `${dayOfWeek} ${month} ${day} ${year} ${hours}:${minutes}:${seconds} GMT${timezoneOffset} ${timezoneName}`;
 }
 
-JSON.stringify = function stringify(vv) {
-    print('stringify', vv)
-
-    return _stri.apply(this, arguments)
-}
-let _eval = eval;
-window.eval = function (){
-    print('eval', arguments);
-    // debugger;
-    // <meta http-equiv="content-security-policy" content="default-src" ranId="meta0">
-    if (mm.allNodes.has(this.srcc)){
-        let html = mm.allNodes.get(this.srcc).html();
-        if (html.indexOf('http-equiv="content-security-policy"') > -1) {
-            throw EvalError('Refused to evaluate a string as JavaScript because \'unsafe-eval\' is not an allowed source of script in the following Content Security Policy directive: "default-src ".');
-        }
-    }
-    return _eval(...arguments)
-}
+// JSON.stringify = function stringify(vv) {
+//     print('stringify', vv)
+//
+//     return _stri.apply(this, arguments)
+// }
+// let _eval = eval;
+// window.eval = function (){
+//     print('eval', arguments);
+//     // debugger;
+//     // <meta http-equiv="content-security-policy" content="default-src" ranId="meta0">
+//     if (mm.allNodes.has(this.srcc)){
+//         let html = mm.allNodes.get(this.srcc).html();
+//         if (html.indexOf('http-equiv="content-security-policy"') > -1) {
+//             throw EvalError('Refused to evaluate a string as JavaScript because \'unsafe-eval\' is not an allowed source of script in the following Content Security Policy directive: "default-src ".');
+//         }
+//     }
+//     return _eval(...arguments)
+// }
 
 
 let _charCodeAt = String.prototype.charCodeAt;

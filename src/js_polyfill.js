@@ -28,17 +28,15 @@ globalThis.__getDeno = function() {
 // Logging utility (必须在最前面定义)
 // ============================================
 
-const LOGGING_ENABLED = typeof globalThis.__NEVER_JSCORE_LOGGING__ !== 'undefined'
-    ? globalThis.__NEVER_JSCORE_LOGGING__
-    : false;
+const LOGGING_ENABLED = true;
 
 function log(...args) {
     if (LOGGING_ENABLED) {
-        console.log('[never-jscore]', ...args);
+        console.log('[env]', ...args);
     }
 }
 
-log('never-jscore polyfill loading...');
+log('env polyfill loading...');
 
 // ============================================
 // Random Number Generation (Support seeded RNG)
@@ -3285,9 +3283,12 @@ log('Proxy logging system loaded');
 
     log('Browser environment protection complete');
 
-    const issues = globalThis.$checkEnvironment();
-    if (issues.length > 0) {
-        log('Protection warnings:', issues);
-    }
+    // const issues = globalThis.$checkEnvironment();
+    // if (issues.length > 0) {
+    //     log('Protection warnings:', issues);
+    // }
 })();
+
+
+
 
