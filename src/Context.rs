@@ -266,8 +266,6 @@ impl Context {
             );
 
             let execute_result = runtime.execute_script("<eval_sync>", code.to_string());
-            // let inspector = runtime.inspector();
-            // inspector.wait_for_session_and_break_on_next_statement();
             // 检查是否是 EarlyReturnError
             match execute_result {
                 Err(e) => {

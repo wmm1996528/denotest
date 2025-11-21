@@ -15,7 +15,6 @@ Object.defineProperties(EventTarget.prototype, {
             }
             // if(debug)
             print('EventTarget.prototype.addEventListener', type, listener, options, useCapture)
-            print(new Error().stack)
             if (!mm.memory.allListeners.get(type)) {
                 mm.memory.allListeners.set(type, [listener])
             } else {
@@ -46,11 +45,14 @@ Object.defineProperties(EventTarget.prototype, {
                 useCapture: useCapture
             })
             if (type === 'visibilitychange'
-                // || type === 'load'
+                || type === 'load'
                 // || type === 'message'
                 || type === 'DOMContentLoaded') {
                 debugger;
-                listener.call(this, new Event('DOMContentLoaded', {target:document, currentTarget:document}))
+                if (this instanceof HTMLIFrameElement) {
+                    listener.call(this, new Event('DOMContentLoaded', {target:document, currentTarget:document}))
+
+                }
                 // listener(new Event(type, {
                 //     srcElement: document,
                 //     target: document,

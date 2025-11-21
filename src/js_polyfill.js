@@ -465,7 +465,7 @@ globalThis.__neverjscore_clear_all_timers__ = function() {
 if (typeof setTimeout === 'undefined') {
     globalThis.setTimeout = function(callback, delay = 0, ...args) {
         const timerId = __getDeno().core.ops.op_get_timer_id();
-        log(`setTimeout called: id=${timerId}, delay=${delay}ms`);
+        __getDeno().core.ops.op_console_log(`setTimeout called: id=${timerId}, delay=${delay}ms`);
 
         // Track active timer
         __active_timers__.add(timerId);

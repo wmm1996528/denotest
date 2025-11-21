@@ -584,11 +584,11 @@ function get_img(_img) {
                         }
 
 
-                        loadFunc(new Event('load',{
-                            target: child,
-                            isTrusted: true,
-
-                        }))
+                        // loadFunc(new Event('load',{
+                        //     target: child,
+                        //     isTrusted: true,
+                        //
+                        // }))
                     }
                 }
                 // if (this instanceof HTMLDocument ){

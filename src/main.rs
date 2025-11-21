@@ -27,18 +27,14 @@ use std::fs;
 use std::rc::Rc;
 use std::sync::Once;
 use tokio::time::Instant;
+use crate::runtime::ensure_v8_initialized;
 use crate::tools::{format_error, get_env_code, init_utils};
 
 static INIT: Once = Once::new();
 
-fn ensure_v8_initialized() {
-    INIT.call_once(|| {
-        // Initialize V8 platform (required before creating any isolates)
-        deno_core::JsRuntime::init_platform(None, false);
-    });
-}
 
-#[tokio::main(flavor = "current_thread")]
+
+#[tokio::main]
 async fn main() {
     ensure_v8_initialized();
     let env_code = get_env_code();
@@ -155,7 +151,7 @@ async fn test() -> String {
     fs::write("env.js", &code).unwrap();
 
     let t1 = Instant::now();
-    match context.execute_js(&code, false) {
+    match context.execute_js(&code, true) {
         Ok(result) => {
             println!("{}", result);
             println!("Execution time: {:?}", t1.elapsed());

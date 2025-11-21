@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::sync::OnceLock;
-
+use tokio::runtime::Handle;
 /// 全局 V8 平台初始化标志
 ///
 /// V8 平台只能初始化一次，使用 OnceLock 确保线程安全。
@@ -45,24 +45,37 @@ pub fn ensure_v8_initialized() {
 ///
 /// 使用 thread_local! 确保每个 OS 线程有独立的 runtime。
 /// 多个 Python 线程可以并行运行，每个使用自己的 runtime。
+// pub fn run_with_tokio<F, R>(f: F) -> R
+// where
+//     F: std::future::Future<Output = R>,
+// {
+//     TOKIO_RUNTIME.with(|cell| {
+//         // 如果当前线程还没有 runtime，创建一个
+//         if cell.borrow().is_none() {
+//             let rt = tokio::runtime::Builder::new_current_thread()
+//                 .enable_all()
+//                 .build()
+//                 .expect("Failed to create tokio runtime");
+//
+//             cell.borrow_mut().replace(rt);
+//         }
+//
+//         // 使用 runtime 执行异步代码
+//         let rt_ref = cell.borrow();
+//         let rt = rt_ref.as_ref().expect("Runtime should be initialized");
+//         rt.block_on(f)
+//     })
+// }
+
+
 pub fn run_with_tokio<F, R>(f: F) -> R
 where
     F: std::future::Future<Output = R>,
 {
-    TOKIO_RUNTIME.with(|cell| {
-        // 如果当前线程还没有 runtime，创建一个
-        if cell.borrow().is_none() {
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("Failed to create tokio runtime");
-
-            cell.borrow_mut().replace(rt);
-        }
-
-        // 使用 runtime 执行异步代码
-        let rt_ref = cell.borrow();
-        let rt = rt_ref.as_ref().expect("Runtime should be initialized");
-        rt.block_on(f)
-    })
+    // 安全地获取当前 runtime 的 handle
+    let handle = Handle::current();
+    // 在当前 runtime 上直接执行
+    tokio::task::block_in_place(|| handle.block_on(f))
+    // 或者更现代的写法（Tokio 1.38+）：
+    // tokio::runtime::enter(handle).block_on(f)
 }
