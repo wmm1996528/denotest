@@ -184,7 +184,7 @@ pub fn init_utils(scope: &mut v8::PinScope<'_, '_>, global: v8::Local<v8::Object
         let call = _args.data();
         if call.is_function() {
             let func = call.cast::<v8::Function>();
-            println!("call {} {}",func.get_name(_scope).to_rust_string_lossy(_scope), _args.is_construct_call());
+            // println!("call {} {}",func.get_name(_scope).to_rust_string_lossy(_scope), _args.is_construct_call());
 
             let mut params = &mut [].to_vec();
             for i in 0.._args.length() {
@@ -192,7 +192,7 @@ pub fn init_utils(scope: &mut v8::PinScope<'_, '_>, global: v8::Local<v8::Object
             }
             let res = func.call(_scope, _args.this().into(), params);
              if _args.is_construct_call(){
-                 println!("new target {} {}",func.get_name(_scope).to_rust_string_lossy(_scope), _args.is_construct_call());
+                 // println!("new target {} {}",func.get_name(_scope).to_rust_string_lossy(_scope), _args.is_construct_call());
                 _rv.set( _args.this().into());
                  return;
             }

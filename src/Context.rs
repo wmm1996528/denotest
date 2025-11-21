@@ -3,7 +3,7 @@ use crate::runtime::run_with_tokio;
 use crate::storage::ResultStorage;
 use crate::tools::{format_error, get_env_code, init_utils};
 use anyhow::{Error, Result, anyhow};
-use deno_core::{JsRuntime, RuntimeOptions};
+use deno_core::{v8, InspectorSessionKind, JsRuntime, JsRuntimeInspector, RuntimeOptions};
 use rand::SeedableRng;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -37,16 +37,22 @@ impl Context {
         extensions.push(crate::timer_real_ops::timer_real_ops::init());
 
         let mut runtime = JsRuntime::new(RuntimeOptions {
+            // v8_platform:Some(v8_platform),
+            inspector:true,
             extensions,
             ..Default::default()
         });
+
         // Make sure the module was evaluated.
+
+
         {
             deno_core::scope!(scope, runtime);
+
             let global = scope.get_current_context().global(scope);
             init_utils(scope, global);
-        }
 
+        }
         // runtime
         //     .execute_script("base", JS_POLYFILL)
         //     .unwrap();
@@ -260,7 +266,8 @@ impl Context {
             );
 
             let execute_result = runtime.execute_script("<eval_sync>", code.to_string());
-
+            // let inspector = runtime.inspector();
+            // inspector.wait_for_session_and_break_on_next_statement();
             // 检查是否是 EarlyReturnError
             match execute_result {
                 Err(e) => {

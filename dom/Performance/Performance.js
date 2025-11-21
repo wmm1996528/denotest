@@ -418,7 +418,7 @@ Object.setPrototypeOf(PerformanceResourceTiming, PerformanceEntry)
 Object.setPrototypeOf(PerformanceResourceTiming.prototype, PerformanceEntry.prototype)
 PerformanceNavigationTiming = newFunc('PerformanceNavigationTiming', 1, function PerformanceNavigationTiming(config) {
     if (config) {
-        __getDeno().core.ops.op_console_log(JSON.stringify(config));
+        // __getDeno().core.ops.op_console_log(JSON.stringify(config));
         mm.memory.private_data.set(this, config)
         return;
     }
@@ -5359,7 +5359,7 @@ Performance = newFunc('Performance', 10, function Performance() {
     ]
     resources2.forEach(e => {
         let c = new PerformanceNavigationTiming(e)
-        __getDeno().core.ops.op_console_log(typeof JSON.stringify(mm.memory.private_data.get(c)))
+        // __getDeno().core.ops.op_console_log(typeof JSON.stringify(mm.memory.private_data.get(c)))
         resources.push(c)
     })
     MemoryInfo = newFunc('MemoryInfo', 1, function (){print('MemoryInfo.call');mm.memory.private_data.set(this, {})});

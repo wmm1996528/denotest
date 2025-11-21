@@ -1,7 +1,6 @@
 Plugin = newFunc('Plugin', 1, function Plugin() {
-    __getDeno().core.ops.op_console_log('Plugin.call');
+    print('Plugin.call');
     mm.memory.private_data.set(this, {})
-    __getDeno().core.ops.op_console_log(typeof  mm.memory.private_data.get(this));
 
 
 });

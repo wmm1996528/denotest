@@ -91,7 +91,7 @@ let keys = Object.keys(pluginss);
 if (keys.length != 0) {
     for (let index = 0; index < keys.length; index++) {
         let plugin = new Plugin();
-        __getDeno().core.ops.op_console_log(typeof  mm.memory.private_data.get(plugin));
+        // __getDeno().core.ops.op_console_log(typeof  mm.memory.private_data.get(plugin));
         let plugin_data = pluginss[keys[index]];
         if (plugin_data !== undefined) {
             mm.memory.private_data.get(plugin).description = plugin_data.description;
