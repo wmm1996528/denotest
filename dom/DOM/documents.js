@@ -17,6 +17,5 @@ Object.defineProperties(document, {
         value: mm.memory.url
     },
 })
-if (proxy) document = mm.proxy(document, 'document')
 
 window.document = document;

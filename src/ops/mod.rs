@@ -9,6 +9,8 @@ pub mod browser_env;
 mod tools;
 pub mod crypto_ops;
 pub mod storage_ops;
+pub mod performance_ops;
+mod random_ops;
 // 浏览器环境对象 (新增)
 
 // 重新导出常用类型

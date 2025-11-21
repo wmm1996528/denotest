@@ -7,7 +7,7 @@ let script_name = 'script_name';
 let domUrl = 'domUrl';
 Utils = {
     registerNative: function (name,b) {
-        return newFunc(name,19,this['native_'+name])
+        window[name] =  newFunc(name,10,window['native_'+name])
     }
 }
 

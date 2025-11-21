@@ -30,6 +30,7 @@ impl Context {
             crate::ops::browser_env::browser_env_ops::init(),
             crate::ops::crypto_ops::crypto_ops::init(),
             crate::ops::storage_ops::pyexecjs_ext::init(storage.clone()),
+            crate::ops::performance_ops::performance_ops::init(),
         ];
 
         // 根据参数决定是否加载扩展

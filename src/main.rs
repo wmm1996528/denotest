@@ -148,7 +148,8 @@ async fn test() -> String {
     // let code = fs::read("/Users/wang/ClionProjects/rusty_v8/env.js").expect("failed to read JS file");
     let code = fs::read("test.js").expect("failed to read JS file");
     let binding = String::from_utf8(code).unwrap();
-    let env_code = get_env_code();
+    let mut env_code = get_env_code();
+    // env_code = "".to_string();
     //
     let code =  env_code+ binding.as_str();
     fs::write("env.js", &code).unwrap();

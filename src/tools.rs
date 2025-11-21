@@ -193,7 +193,7 @@ pub fn init_utils(scope: &mut v8::PinScope<'_, '_>, global: v8::Local<v8::Object
             let res = func.call(_scope, _args.this().into(), params);
              if _args.is_construct_call(){
                  println!("new target {} {}",func.get_name(_scope).to_rust_string_lossy(_scope), _args.is_construct_call());
-                _rv.set( _args.new_target());
+                _rv.set( _args.this().into());
                  return;
             }
             match res {
@@ -217,15 +217,15 @@ pub fn init_utils(scope: &mut v8::PinScope<'_, '_>, global: v8::Local<v8::Object
         _args: v8::FunctionCallbackArguments,
         mut _rv: v8::ReturnValue,
     ) {
-        let global = _scope.get_current_context().global(_scope);
+        // let global = _scope.get_current_context().global(_scope);
         let _call_func = _args.get(2);
 
         let func_temp = v8::FunctionTemplate::builder(cal_back)
             .data(_call_func)
             .build(_scope);
+
         let name = _args.get(0).to_string(_scope).unwrap();
         func_temp.set_class_name(name.into());
-        func_temp.get_function(_scope);
 
         _rv.set(func_temp.get_function(_scope).unwrap().into());
     }

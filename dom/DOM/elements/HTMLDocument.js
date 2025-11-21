@@ -1,4 +1,4 @@
-HTMLDocument = newFunc('HTMLDocument', 1, function () {
+HTMLDocument = newFunc('HTMLDocument', 1, function HTMLDocument() {
     print('HTMLDocument.call');
     mm.memory.private_data.set(this, {
         name:'HTMLDocument',
@@ -22,27 +22,12 @@ HTMLDocument = newFunc('HTMLDocument', 1, function () {
 });
 
 
-;delete HTMLDocument.prototype.constructor;
 ;
 Object.defineProperties(HTMLDocument.prototype, {
     [Symbol.toStringTag]: {
         value: 'HTMLDocument'
     },
 
-    'constructor': {
-
-        value: newFunc('constructor', 10, function () {
-
-            if (!HTMLDocument.prototype.isPrototypeOf(this)) {
-                throw new TypeError("Illegal constructor");
-            }
-            ;
-            if (debug) print('HTMLDocument.constructor.call', arguments)
-
-        }), writable: true, enumerable: false, configurable: true,
-
-
-    },
 })
 
 

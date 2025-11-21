@@ -83,23 +83,48 @@ pluginArrays = new PluginArray(Object.keys(pluginss).length);
 // Object.setPrototypeOf(pluginArrays.__proto__, PluginArray.prototype)
 
 ;
-;(function add_default_pluginArray() {
-    let keys = Object.keys(pluginss);
-    if (keys.length != 0) {
-        for (let index = 0; index < keys.length; index++) {
 
-            let plugin_temp = mm.memory.plugin.new(pluginss[keys[index]]);
-            pluginArrays[index] = plugin_temp;
-            pluginArrays[plugin_temp.name] = plugin_temp;
-            // Object.defineProperty(pluginArrays, index, {
-            //     value: plugin_temp, configurable: true, enumerable: true, writable: false
-            // });
-            // Object.defineProperty(pluginArrays, plugin_temp.name, {
-            //     value: plugin_temp, configurable: true, enumerable: false, writable: false
-            // });
-            mm.memory.private_data.get(pluginArrays).length = index + 1
+
+
+
+let keys = Object.keys(pluginss);
+if (keys.length != 0) {
+    for (let index = 0; index < keys.length; index++) {
+        let plugin = new Plugin();
+        __getDeno().core.ops.op_console_log(typeof  mm.memory.private_data.get(plugin));
+        let plugin_data = pluginss[keys[index]];
+        if (plugin_data !== undefined) {
+            mm.memory.private_data.get(plugin).description = plugin_data.description;
+            mm.memory.private_data.get(plugin).filename = plugin_data.filename;
+            mm.memory.private_data.get(plugin).name = plugin_data.name;
+            mm.memory.private_data.get(plugin)['0'] = mm.memory.mimeType.new(plugin_data['0'])
+            mm.memory.private_data.get(plugin)[plugin_data['0'].type] = mm.memory.mimeType.new(plugin_data['0'])
+            mm.memory.private_data.get(plugin)['1'] = mm.memory.mimeType.new(plugin_data['1'])
+            mm.memory.private_data.get(plugin)[plugin_data['1'].type] = mm.memory.mimeType.new(plugin_data['1'])
+            plugin[0] = mm.memory.private_data.get(plugin)['0']
+            plugin[1] = mm.memory.private_data.get(plugin)['1']
+            // for (let mtindex = 0; mtindex < plugin_data.MimeTypes.length; mtindex++) {
+            //     let mimeType_data = plugin_data.MimeTypes[mtindex];
+            //     let mimeType = mm.memory.mimeType.new(mimeType_data, plugin);
+            //
+            //     Object.defineProperty(plugin, mtindex, {
+            //         value: mimeType, configurable: true, enumerable: true, writable: false
+            //     })
+            //     Object.defineProperty(plugin, mimeType.type, {
+            //         value: mimeType, configurable: true, enumerable: false, writable: false
+            //     });
+            // };
+            // plugin.length = plugin_data.MimeTypes.length;
         }
+        Object.setPrototypeOf(plugin, Plugin.prototype)
+        pluginArrays[index] = plugin;
+        pluginArrays[plugin.name] = plugin;
+        // Object.defineProperty(pluginArrays, index, {
+        //     value: plugin_temp, configurable: true, enumerable: true, writable: false
+        // });
+        // Object.defineProperty(pluginArrays, plugin_temp.name, {
+        //     value: plugin_temp, configurable: true, enumerable: false, writable: false
+        // });
+        mm.memory.private_data.get(pluginArrays).length = index + 1
     }
-})();
-if (proxy) pluginArrays = mm.proxy(pluginArrays, 'pluginArrays')
-
+}

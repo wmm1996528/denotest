@@ -5451,7 +5451,7 @@ Performance = newFunc('Performance', 10, function Performance() {
                 ;
                 let ele = mm.memory.private_data.get(this).timeOrigin;
                 if (!ele) {
-                    ele = perfor.timeOrigin
+                    ele = __getDeno().core.ops.op_performance_time_origin();
                     // ele = 1729834138887
                     mm.memory.private_data.get(this).timeOrigin = ele
                 }
@@ -5658,7 +5658,7 @@ Performance = newFunc('Performance', 10, function Performance() {
                     throw new TypeError("Illegal constructor");
                 }
                 ;
-                let result = parseInt(perfor.now()) + .7049999237 + startNow;
+                let result = __getDeno().core.ops.op_performance_now();
                 // // print('now', result)
                 // if (keepRandom) {
                 //     result = 104536.6000000001
